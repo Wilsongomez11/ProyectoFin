@@ -10,8 +10,8 @@ public class CorsConfigurer {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/api/") // Permitir solicitudes desde el emulador de Android
-                        .allowedOrigins("http://10.0.2.2:8081") // emulador de Android
+                registry.addMapping("/api/")
+                        .allowedOrigins("http://10.0.2.2:8081")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
