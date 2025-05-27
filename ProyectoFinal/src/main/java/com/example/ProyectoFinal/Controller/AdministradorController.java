@@ -1,12 +1,14 @@
 package com.example.ProyectoFinal.Controller;
 
 import com.example.ProyectoFinal.Modelo.Administrador;
+import com.example.ProyectoFinal.Repository.AdministradorRepository;
 import com.example.ProyectoFinal.Service.AdministradorService;
+import jakarta.persistence.Entity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -17,7 +19,7 @@ public class AdministradorController {
     private AdministradorService administradorService;
 
     @GetMapping
-    public List<Administrador> getAll() {
+    public List<Administrador> getAllAdministradores() {
         return administradorService.findAll();
     }
 
