@@ -30,4 +30,3 @@ public class ProveedorService {
         proveedorRepository.deleteById(id);
     }
 }
-

@@ -1,9 +1,6 @@
 package com.example.ProyectoFinal.Modelo;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.*;
 
 @Entity
 public class Cliente {
@@ -13,6 +10,7 @@ public class Cliente {
     private String nombre;
 
     @ManyToOne
+    @JoinColumn(name = "mesero_id")
     private Mesero mesero;
 
     public Cliente() {

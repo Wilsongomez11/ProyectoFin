@@ -5,51 +5,42 @@ import com.example.ProyectoFinal.Service.MeseroService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.Optional;
 
-@CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/api/meseros")
+@RequestMapping("/meseros")
+@CrossOrigin(origins = "*")
 public class MeseroController {
 
     @Autowired
     private MeseroService meseroService;
 
     @GetMapping
-    public List<Mesero> getAll() {
-        return meseroService.findAll();
+    public List<Mesero> listarMeseros() {
+        return meseroService.listarMeseros();
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Mesero> getById(@PathVariable Long id) {
-        return meseroService.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @PostMapping("/registrar")
+    public ResponseEntity<Mesero> registrarMesero(@RequestBody Mesero mesero) {
+        return ResponseEntity.ok(meseroService.registrarMesero(mesero));
     }
 
-    @PostMapping
-    public Mesero create(@RequestBody Mesero mesero) {
-        return meseroService.save(mesero);
+    @PostMapping("/login")
+    public ResponseEntity<?> loginMesero(@RequestBody Mesero credenciales) {
+        Optional<Mesero> mesero = meseroService.loginMesero(credenciales.getUsername(), credenciales.getPassword());
+        return mesero.<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(401).body("Credenciales incorrectas"));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Mesero> update(@PathVariable Long id, @RequestBody Mesero mesero) {
-        return meseroService.findById(id)
-                .map(existing -> {
-                    existing.setNombre(mesero.getNombre());
-                    return ResponseEntity.ok(meseroService.save(existing));
-                })
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Mesero> actualizar(@PathVariable Long id, @RequestBody Mesero m) {
+        return ResponseEntity.ok(meseroService.actualizar(id, m));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (meseroService.findById(id).isPresent()) {
-            meseroService.deleteById(id);
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        meseroService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }
-

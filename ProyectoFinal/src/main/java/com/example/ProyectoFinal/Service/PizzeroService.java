@@ -4,7 +4,6 @@ import com.example.ProyectoFinal.Modelo.Pizzero;
 import com.example.ProyectoFinal.Repository.PizzeroRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -12,21 +11,25 @@ import java.util.Optional;
 public class PizzeroService {
 
     @Autowired
-    private PizzeroRepository pizzeroRepository;
+    private PizzeroRepository repo;
 
-    public List<Pizzero> findAll() {
-        return pizzeroRepository.findAll();
+    public List<Pizzero> listar() { return repo.findAll(); }
+
+    public Pizzero registrar(Pizzero p) { return repo.save(p); }
+
+    public Optional<Pizzero> login(String u, String p) { return repo.findByUsernameAndPassword(u, p); }
+
+    public Pizzero actualizar(Long id, Pizzero p) {
+        Pizzero ex = repo.findById(id).orElseThrow();
+        ex.setNombre(p.getNombre());
+        ex.setTelefono(p.getTelefono());
+        ex.setDireccion(p.getDireccion());
+        ex.setUsername(p.getUsername());
+        ex.setPassword(p.getPassword());
+        return repo.save(ex);
     }
 
-    public Optional<Pizzero> findById(Long id) {
-        return pizzeroRepository.findById(id);
-    }
-
-    public Pizzero save(Pizzero pizzero) {
-        return pizzeroRepository.save(pizzero);
-    }
-
-    public void deleteById(Long id) {
-        pizzeroRepository.deleteById(id);
-    }
+    public void eliminar(Long id) { repo.deleteById(id); }
 }
+
+

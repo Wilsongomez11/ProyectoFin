@@ -1,87 +1,78 @@
 package com.example.ProyectoFinal.Modelo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 
 import java.util.List;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
-    public class Administrador {
-        @Id @GeneratedValue
-        private Long id;
-        private String nombre;
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Administrador {
 
-        @OneToMany(mappedBy = "administrador")
-        private List<Pizzero> pizzeros;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-        @OneToMany(mappedBy = "administrador")
-        private List<Mesero> meseros;
+    private String nombre;
+    private String cargo;
+    private String password;
+    private String username;
 
-        @OneToMany(mappedBy = "administrador")
-        private List<Producto> productos;
+    @OneToMany(mappedBy = "administrador", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Pizzero> pizzeros;
 
-    public Administrador() {
-    }
+    @OneToMany(mappedBy = "administrador", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Mesero> meseros;
 
-    public Administrador(Long id, String nombre, List<Pizzero> pizzeros, List<Mesero> meseros, List<Producto> productos) {
-        this.id = id;
-        this.nombre = nombre;
-        this.pizzeros = pizzeros;
-        this.meseros = meseros;
-        this.productos = productos;
+    @OneToMany(mappedBy = "administrador", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Producto> productos;
+    public String getNombre() {
+        return nombre;
     }
 
     public Long getId() {
-        return id;
-    }
-
+        return id; }
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public String getNombre() {
-        return nombre;
     }
 
     public void setNombre(String nombre) {
         this.nombre = nombre;
     }
 
-    public List<Pizzero> getPizzeros() {
-        return pizzeros;
+    public String getUsername() {
+        return username;
     }
 
-    public void setPizzeros(List<Pizzero> pizzeros) {
-        this.pizzeros = pizzeros;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
-    public List<Mesero> getMeseros() {
-        return meseros;
+    public String getPassword() {
+        return password;
     }
 
-    public void setMeseros(List<Mesero> meseros) {
-        this.meseros = meseros;
+    public void setPassword(String password) {
+        this.password = password;
     }
 
-    public List<Producto> getProductos() {
-        return productos;
+    public String getCargo() {
+        return cargo;
     }
 
-    public void setProductos(List<Producto> productos) {
-        this.productos = productos;
-    }
-
-    @Override
-    public String toString() {
-        return "Administrador{" +
-                "id=" + id +
-                ", nombre='" + nombre + '\'' +
-                ", pizzeros=" + pizzeros +
-                ", meseros=" + meseros +
-                ", productos=" + productos +
-                '}';
+    public void setCargo(String cargo) {
+        this.cargo = cargo;
     }
 }
-
