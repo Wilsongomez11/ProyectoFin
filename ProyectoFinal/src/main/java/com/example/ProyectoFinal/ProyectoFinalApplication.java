@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 
 @SpringBootApplication
 @EntityScan(basePackages = "com.example.ProyectoFinal.Modelo")
-public class  ProyectoFinalApplication {
+public class  	ProyectoFinalApplication {
 
 public static void main(String[] args) {
 	loadEnv();

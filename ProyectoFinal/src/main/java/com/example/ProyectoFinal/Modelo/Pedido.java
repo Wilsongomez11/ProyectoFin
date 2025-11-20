@@ -14,7 +14,10 @@ public class Pedido {
     private LocalDateTime fecha;
     private String estado;
     private Double total;
-    private String mesa;
+
+    @ManyToOne
+    @JoinColumn(name = "mesa_id")
+    private Mesa mesa;
 
     @ManyToOne
     private Cliente cliente;
@@ -28,9 +31,10 @@ public class Pedido {
 
 
     // Constructores
-    public Pedido() {}
+    public Pedido() {
+    }
 
-    public Pedido(Long id, LocalDateTime fecha, String estado, Double total, String mesa, Cliente cliente, Mesero mesero, List<DetallePedido> detalles) {
+    public Pedido(Long id, LocalDateTime fecha, String estado, Double total, Mesa mesa, Cliente cliente, Mesero mesero, List<DetallePedido> detalles) {
         this.id = id;
         this.fecha = fecha;
         this.estado = estado;
@@ -73,11 +77,11 @@ public class Pedido {
         this.total = total;
     }
 
-    public String getMesa() {
+    public Mesa getMesa() {
         return mesa;
     }
 
-    public void setMesa(String mesa) {
+    public void setMesa(Mesa mesa) {
         this.mesa = mesa;
     }
 

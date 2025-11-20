@@ -1,22 +1,21 @@
 package com.example.ProyectoFinal.Service;
 
-import com.example.ProyectoFinal.Modelo.DetallePedido;
-import com.example.ProyectoFinal.Modelo.Pedido;
-import com.example.ProyectoFinal.Modelo.Producto;
-import com.example.ProyectoFinal.Repository.DetallePedidoRepository;
-import com.example.ProyectoFinal.Repository.PedidoRepository;
-import com.example.ProyectoFinal.Repository.ProductoRepository;
+import com.example.ProyectoFinal.Modelo.*;
+import com.example.ProyectoFinal.Repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class PedidoService {
+
+    @Autowired
+    private MovimientoCajaService movimientoCajaService;
 
     @Autowired
     private PedidoRepository pedidoRepository;
@@ -25,9 +24,18 @@ public class PedidoService {
     private DetallePedidoRepository detalleRepository;
 
     @Autowired
-    private ProductoRepository productoRepository; //  Nuevo repositorio para manejar stock
+    private ProductoRepository productoRepository;
 
-    // Obtener pedidos ordenados por fecha (FIFO)
+    @Autowired
+    private MesaService mesaService;
+
+    @Autowired
+    private ProductoInsumoRepository productoInsumoRepository;
+
+    @Autowired
+    private InsumoRepository insumoRepository;
+
+
     public List<Pedido> findAll() {
         return pedidoRepository.findAll(Sort.by(Sort.Direction.ASC, "fecha"));
     }
@@ -36,9 +44,71 @@ public class PedidoService {
         return pedidoRepository.findById(id);
     }
 
-    //  Crear un nuevo pedido con control de stock
+    public Map<Integer, String> getEstadoMesas() {
+        List<Pedido> pedidosPendientes = pedidoRepository.findByEstado("Pendiente");
+
+        Set<Integer> mesasOcupadas = pedidosPendientes.stream()
+                .filter(p -> p.getMesa() != null)
+                .map(p -> p.getMesa().getNumero())
+                .collect(Collectors.toSet());
+
+        Map<Integer, String> estadoMesas = new HashMap<>();
+        for (int i = 1; i <= 12; i++) {
+            estadoMesas.put(i, mesasOcupadas.contains(i) ? "Ocupada" : "Libre");
+        }
+
+        return estadoMesas;
+    }
+
+    private void verificarStockCompleto(Producto producto, int cantidadRequerida) {
+        if (producto.getCantidad() < cantidadRequerida) {
+            throw new RuntimeException("Stock insuficiente de producto: " + producto.getNombre()
+                    + " (Disponible: " + producto.getCantidad() + ", Requerido: " + cantidadRequerida + ")");
+        }
+
+        List<ProductoInsumo> insumosNecesarios = productoInsumoRepository.findByProductoId(producto.getId());
+
+        for (ProductoInsumo productoInsumo : insumosNecesarios) {
+            Insumo insumo = productoInsumo.getInsumo();
+            double cantidadInsumoNecesaria = productoInsumo.getCantidadUsada() * cantidadRequerida;
+
+            if (insumo.getCantidadActual() < cantidadInsumoNecesaria) {
+                throw new RuntimeException("Stock insuficiente de insumo: " + insumo.getNombre()
+                        + " para el producto " + producto.getNombre()
+                        + " (Disponible: " + insumo.getCantidadActual() + " " + insumo.getUnidadMedida()
+                        + ", Requerido: " + cantidadInsumoNecesaria + " " + insumo.getUnidadMedida() + ")");
+            }
+        }
+    }
+
+    private void descontarInsumos(Producto producto, int cantidadVendida) {
+        List<ProductoInsumo> insumosNecesarios = productoInsumoRepository.findByProductoId(producto.getId());
+
+        for (ProductoInsumo productoInsumo : insumosNecesarios) {
+            Insumo insumo = productoInsumo.getInsumo();
+            double cantidadADescontar = productoInsumo.getCantidadUsada() * cantidadVendida;
+
+            insumo.setCantidadActual(insumo.getCantidadActual() - cantidadADescontar);
+            insumoRepository.save(insumo);
+        }
+    }
+
+    private void reponerInsumos(Producto producto, int cantidadDevuelta) {
+        List<ProductoInsumo> insumosNecesarios = productoInsumoRepository.findByProductoId(producto.getId());
+
+        for (ProductoInsumo productoInsumo : insumosNecesarios) {
+            Insumo insumo = productoInsumo.getInsumo();
+            double cantidadAReponer = productoInsumo.getCantidadUsada() * cantidadDevuelta;
+
+            insumo.setCantidadActual(insumo.getCantidadActual() + cantidadAReponer);
+            insumoRepository.save(insumo);
+        }
+    }
+
+
     @Transactional
     public Pedido save(Pedido pedido) {
+
         if (pedido.getFecha() == null) {
             pedido.setFecha(LocalDateTime.now());
         }
@@ -47,17 +117,16 @@ public class PedidoService {
 
         if (pedido.getDetalles() != null) {
             for (DetallePedido detalle : pedido.getDetalles()) {
+
                 Producto producto = productoRepository.findById(detalle.getProducto().getId())
                         .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
 
-                // Verificar stock suficiente
-                if (producto.getCantidad() < detalle.getCantidad()) {
-                    throw new RuntimeException("❌ No hay suficiente stock de " + producto.getNombre());
-                }
+                verificarStockCompleto(producto, detalle.getCantidad());
 
-                // Descontar stock
                 producto.setCantidad(producto.getCantidad() - detalle.getCantidad());
                 productoRepository.save(producto);
+
+                descontarInsumos(producto, detalle.getCantidad());
 
                 detalle.setPedido(pedido);
                 total += detalle.getCantidad() * detalle.getPrecioUnitario();
@@ -68,6 +137,12 @@ public class PedidoService {
 
         Pedido saved = pedidoRepository.save(pedido);
 
+        if (pedido.getMesa() != null && pedido.getMesa().getId() != null) {
+            Mesa mesa = mesaService.findById(pedido.getMesa().getId());
+            mesa.setEstado("Ocupada");
+            mesaService.save(mesa);
+        }
+
         if (pedido.getDetalles() != null) {
             detalleRepository.saveAll(pedido.getDetalles());
         }
@@ -75,67 +150,147 @@ public class PedidoService {
         return saved;
     }
 
+
+
     public void deleteById(Long id) {
         pedidoRepository.deleteById(id);
     }
 
-    // Actualizar estado del pedido
-    public Pedido actualizarEstado(Long id, String nuevoEstado) {
+
+    public Pedido actualizarEstado(Long id, String estado) {
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
-        pedido.setEstado(nuevoEstado);
+
+        pedido.setEstado(estado);
         return pedidoRepository.save(pedido);
     }
 
-    // Actualizar un pedido existente con control de stock
+
     @Transactional
     public Pedido actualizarPedido(Long id, Pedido pedidoActualizado) {
-        return pedidoRepository.findById(id).map(p -> {
 
-            // Recalcular el total
+        return pedidoRepository.findById(id).map(original -> {
+
             double nuevoTotal = 0.0;
 
             if (pedidoActualizado.getDetalles() != null) {
-                for (DetallePedido detalleNuevo : pedidoActualizado.getDetalles()) {
-                    Producto producto = productoRepository.findById(detalleNuevo.getProducto().getId())
+
+                for (DetallePedido dNuevo : pedidoActualizado.getDetalles()) {
+
+                    Producto producto = productoRepository.findById(dNuevo.getProducto().getId())
                             .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
 
-                    // Buscar detalle anterior del mismo producto (si existía)
-                    Optional<DetallePedido> detalleExistenteOpt = p.getDetalles().stream()
+                    Optional<DetallePedido> anterior = original.getDetalles().stream()
                             .filter(d -> d.getProducto().getId().equals(producto.getId()))
                             .findFirst();
 
-                    if (detalleExistenteOpt.isPresent()) {
-                        DetallePedido detalleExistente = detalleExistenteOpt.get();
-                        int diferencia = detalleNuevo.getCantidad() - detalleExistente.getCantidad();
+                    if (anterior.isPresent()) {
+                        int diferencia = dNuevo.getCantidad() - anterior.get().getCantidad();
 
-                        // Si se aumentó la cantidad, validar stock
-                        if (diferencia > 0 && producto.getCantidad() < diferencia) {
-                            throw new RuntimeException("❌ Stock insuficiente para " + producto.getNombre());
+                        if (diferencia > 0) {
+                            verificarStockCompleto(producto, diferencia);
+
+                            producto.setCantidad(producto.getCantidad() - diferencia);
+                            productoRepository.save(producto);
+
+                            descontarInsumos(producto, diferencia);
+                        }
+                        else if (diferencia < 0) {
+                            int cantidadAReponer = Math.abs(diferencia);
+
+                            producto.setCantidad(producto.getCantidad() + cantidadAReponer);
+                            productoRepository.save(producto);
+
+                            reponerInsumos(producto, cantidadAReponer);
                         }
 
-                        // Actualizar stock según diferencia
-                        producto.setCantidad(producto.getCantidad() - diferencia);
-                        productoRepository.save(producto);
+                        if (pedidoActualizado.getMesa() != null && pedidoActualizado.getMesa().getId() != null) {
+                            Mesa mesa = mesaService.findById(pedidoActualizado.getMesa().getId());
+                            if (mesa == null) throw new RuntimeException("Mesa no encontrada");
+                            mesa.setEstado("Ocupada");
+                            mesaService.save(mesa);
+                            original.setMesa(mesa);
+                        }
                     }
 
-                    detalleNuevo.setPedido(p);
-                    nuevoTotal += detalleNuevo.getCantidad() * detalleNuevo.getPrecioUnitario();
+                    dNuevo.setPedido(original);
+                    nuevoTotal += dNuevo.getCantidad() * dNuevo.getPrecioUnitario();
                 }
 
-                // Guardar los nuevos detalles
                 detalleRepository.saveAll(pedidoActualizado.getDetalles());
-                p.setDetalles(pedidoActualizado.getDetalles());
+                original.setDetalles(pedidoActualizado.getDetalles());
             }
 
-            // Actualizar campos generales
-            p.setTotal(nuevoTotal);
-            p.setEstado(pedidoActualizado.getEstado());
-            p.setMesa(pedidoActualizado.getMesa());
-            p.setCliente(pedidoActualizado.getCliente());
-            p.setMesero(pedidoActualizado.getMesero());
+            original.setTotal(nuevoTotal);
+            original.setEstado(pedidoActualizado.getEstado());
+            original.setMesa(pedidoActualizado.getMesa());
+            original.setCliente(pedidoActualizado.getCliente());
+            original.setMesero(pedidoActualizado.getMesero());
 
-            return pedidoRepository.save(p);
+            return pedidoRepository.save(original);
+
         }).orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
+    }
+
+    @Transactional
+    public Pedido devolverPedidoParcial(Long id, DevolucionRequest req) {
+
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
+
+        boolean devolvioAlgo = false;
+        boolean devolvioTodo = true;
+        double montoDevuelto = 0.0;
+
+        for (DetallePedido det : pedido.getDetalles()) {
+
+            Long productoId = det.getProducto().getId();
+            int cantDevuelta = req.getCantidades().getOrDefault(productoId, 0);
+
+            if (cantDevuelta > 0) {
+                devolvioAlgo = true;
+
+                if (req.isReponerStock()) {
+                    Producto producto = productoRepository.findById(productoId)
+                            .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+
+                    producto.setCantidad(producto.getCantidad() + cantDevuelta);
+                    productoRepository.save(producto);
+
+                    reponerInsumos(producto, cantDevuelta);
+                }
+
+                montoDevuelto += cantDevuelta * det.getPrecioUnitario();
+
+                if (cantDevuelta < det.getCantidad()) {
+                    devolvioTodo = false;
+                }
+            } else {
+                devolvioTodo = false;
+            }
+        }
+
+        if (!devolvioAlgo) {
+            pedido.setEstado("Pagado");
+        } else if (devolvioTodo) {
+            pedido.setEstado("Devuelto");
+
+            if (pedido.getMesa() != null) {
+                Mesa mesa = mesaService.findById(pedido.getMesa().getId());
+                if (mesa != null) {
+                    mesa.setEstado("Libre");
+                    mesaService.save(mesa);
+                }
+            }
+
+        } else {
+            pedido.setEstado("Parcialmente Devuelto");
+        }
+
+        if (montoDevuelto > 0) {
+            movimientoCajaService.registrarDevolucion(id, montoDevuelto, 1L);
+        }
+
+        return pedidoRepository.save(pedido);
     }
 }
