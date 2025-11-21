@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,47 +22,46 @@ import java.util.Map;
 public class MovimientoCajaService {
 
     @Autowired
-    private MovimientoCajaRepository movimientoRepo;
+    private MovimientoCajaRepository movimientoCajaRepository;
 
     @Autowired
-    private PedidoRepository pedidoRepo;
+    private PedidoRepository pedidoRepository;
+
+    @Autowired
+    private AdministradorRepository administradorRepository;
 
     @Autowired
     private CajaRepository cajaRepo;
 
-    @Autowired
-    private AdministradorRepository adminRepo;
 
     public List<MovimientoCaja> findAll() {
-        return movimientoRepo.findAll();
+        return movimientoCajaRepository.findAll();
     }
 
     public MovimientoCaja save(MovimientoCaja m) {
-        return movimientoRepo.save(m);
+        return movimientoCajaRepository.save(m);
     }
 
     public List<MovimientoCaja> findByFecha(LocalDate fecha) {
-        return movimientoRepo.findByFecha(fecha);
+        return movimientoCajaRepository.findByFecha(fecha);
     }
 
     public List<MovimientoCaja> findHoy() {
-        return movimientoRepo.findByFecha(LocalDate.now());
+        return movimientoCajaRepository.findByFecha(LocalDate.now());
     }
 
     @Transactional
     public Map<String, Object> registrarPago(Long pedidoId, Double montoPagado, Long adminId) {
 
-        Pedido pedido = pedidoRepo.findById(pedidoId)
+        Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
 
-        double total = pedido.getTotal();
-        if (montoPagado < total)
-            throw new RuntimeException("Monto pagado insuficiente");
-
-        double cambio = montoPagado - total;
-
-        Administrador admin = adminRepo.findById(adminId)
+        Administrador administrador = administradorRepository.findById(adminId)
                 .orElseThrow(() -> new RuntimeException("Administrador no encontrado"));
+
+        Double total = pedido.getTotal();
+        Double cambio = montoPagado - total;
+
 
         Caja caja = cajaRepo.findFirstByFechaOrderByIdDesc(LocalDate.now())
                 .orElseGet(() -> {
@@ -73,36 +73,36 @@ public class MovimientoCajaService {
                     return cajaRepo.save(nueva);
                 });
 
-        MovimientoCaja mov = new MovimientoCaja();
-        mov.setTipo("ingreso");
-        mov.setMonto(total);
-        mov.setDescripcion("Pago pedido " + pedidoId);
-        mov.setFecha(LocalDate.now());
-        mov.setAdministrador(admin);
-        mov.setCaja(caja);
-        mov.setMonto(Math.abs(total));
-
-        movimientoRepo.save(mov);
 
         caja.setIngresos(caja.getIngresos() + total);
         caja.setBalance(caja.getIngresos() - caja.getEgresos());
         cajaRepo.save(caja);
 
-        pedido.setEstado("Pagado");
-        pedidoRepo.save(pedido);
 
-        Map<String, Object> respuesta = new HashMap<>();
-        respuesta.put("total", total);
-        respuesta.put("pagado", montoPagado);
-        respuesta.put("cambio", cambio);
+        MovimientoCaja movimiento = new MovimientoCaja();
+        movimiento.setFecha(LocalDateTime.now());
+        movimiento.setTipo("Pago");
+        movimiento.setMonto(total);
+        movimiento.setDescripcion("Pago - Pedido #" + pedidoId);
+        movimiento.setPedido(pedido);
+        movimiento.setAdministrador(administrador);
 
-        return respuesta;
+        movimientoCajaRepository.save(movimiento);
+
+
+        Map<String, Object> resultado = new HashMap<>();
+        resultado.put("mensaje", "Pago registrado exitosamente");
+        resultado.put("cambio", cambio);
+        resultado.put("total", total);
+        resultado.put("pagado", montoPagado);
+        resultado.put("balance", caja.getBalance());
+
+        return resultado;
     }
-
     @Transactional
     public void registrarDevolucion(Long pedidoId, Double monto, Long adminId) {
 
-        Administrador admin = adminRepo.findById(adminId)
+        Administrador admin = administradorRepository.findById(adminId)
                 .orElseThrow(() -> new RuntimeException("Admin no encontrado"));
 
         Caja caja = cajaRepo.findFirstByFechaOrderByIdDesc(LocalDate.now())
@@ -119,12 +119,12 @@ public class MovimientoCajaService {
         mov.setTipo("devolucion");
         mov.setMonto(monto);
         mov.setDescripcion("Devolución del pedido " + pedidoId);
-        mov.setFecha(LocalDate.now());
+        mov.setFecha(LocalDateTime.now());
         mov.setAdministrador(admin);
         mov.setCaja(caja);
         mov.setMonto(-Math.abs(monto));
 
-        movimientoRepo.save(mov);
+        movimientoCajaRepository.save(mov);
 
         caja.setEgresos(caja.getEgresos() + monto);
         caja.setBalance(caja.getIngresos() - caja.getEgresos());

@@ -5,23 +5,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/pagos")
 @CrossOrigin(origins = "*")
 public class PagoController {
 
     @Autowired
-    private MovimientoCajaService movimientoService;
+    private MovimientoCajaService movimientoCajaService;
 
     @PostMapping("/registrar")
-    public ResponseEntity<?> registrarPago(
+    public Map<String, Object> registrarPago(
             @RequestParam Long pedidoId,
             @RequestParam Double montoPagado,
             @RequestParam Long adminId
     ) {
-        return ResponseEntity.ok(
-                movimientoService.registrarPago(pedidoId, montoPagado, adminId)
-        );
+        return movimientoCajaService.registrarPago(pedidoId, montoPagado, adminId);
     }
 }
 

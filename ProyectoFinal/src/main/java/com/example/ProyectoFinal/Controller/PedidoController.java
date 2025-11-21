@@ -39,7 +39,7 @@ public class PedidoController {
 
     @PostMapping
     public ResponseEntity<Pedido> crearPedido(@RequestBody Pedido pedido) {
-        return ResponseEntity.ok(pedidoService.save(pedido));
+        return ResponseEntity.ok(pedidoService.crearPedido(pedido));
     }
 
     @PutMapping("/{id}/estado")

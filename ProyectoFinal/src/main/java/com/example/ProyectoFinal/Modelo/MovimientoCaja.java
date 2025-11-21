@@ -1,8 +1,10 @@
 package com.example.ProyectoFinal.Modelo;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 public class MovimientoCaja {
@@ -14,9 +16,17 @@ public class MovimientoCaja {
     private String tipo;
     private Double monto;
     private String descripcion;
-    private LocalDate fecha;
+    private LocalDateTime fecha;
+
 
     @ManyToOne
+    @JoinColumn(name = "pedido_id")
+    @JsonIgnoreProperties({"detalles", "mesa", "cliente", "mesero"})
+    private Pedido pedido;
+
+    @ManyToOne
+    @JoinColumn(name = "administrador_id")
+    @JsonIgnoreProperties({"password"})
     private Administrador administrador;
 
     @ManyToOne
@@ -24,12 +34,13 @@ public class MovimientoCaja {
 
     public MovimientoCaja() {}
 
-    public MovimientoCaja(Long id, String tipo, Double monto, String descripcion, LocalDate fecha, Administrador administrador, Caja caja) {
+    public MovimientoCaja(Long id, String tipo, Double monto, String descripcion, LocalDateTime fecha, Pedido pedido, Administrador administrador, Caja caja) {
         this.id = id;
         this.tipo = tipo;
         this.monto = monto;
         this.descripcion = descripcion;
         this.fecha = fecha;
+        this.pedido = pedido;
         this.administrador = administrador;
         this.caja = caja;
     }
@@ -66,12 +77,20 @@ public class MovimientoCaja {
         this.descripcion = descripcion;
     }
 
-    public LocalDate getFecha() {
+    public LocalDateTime getFecha() {
         return fecha;
     }
 
-    public void setFecha(LocalDate fecha) {
+    public void setFecha(LocalDateTime fecha) {
         this.fecha = fecha;
+    }
+
+    public Pedido getPedido() {
+        return pedido;
+    }
+
+    public void setPedido(Pedido pedido) {
+        this.pedido = pedido;
     }
 
     public Administrador getAdministrador() {
@@ -88,19 +107,6 @@ public class MovimientoCaja {
 
     public void setCaja(Caja caja) {
         this.caja = caja;
-    }
-
-    @Override
-    public String toString() {
-        return "MovimientoCaja{" +
-                "id=" + id +
-                ", tipo='" + tipo + '\'' +
-                ", monto=" + monto +
-                ", descripcion='" + descripcion + '\'' +
-                ", fecha=" + fecha +
-                ", administrador=" + administrador +
-                ", caja=" + caja +
-                '}';
     }
 }
 
