@@ -7,7 +7,12 @@ import com.example.ProyectoFinal.Repository.FacturaRepository;
 import com.example.ProyectoFinal.Repository.PedidoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -72,6 +77,70 @@ public class FacturaService {
 
     public List<Factura> listarTodas() {
         return facturaRepository.findAll();
+    }
+    public List<Factura> buscarPorRango(LocalDateTime inicio, LocalDateTime fin) {
+        return facturaRepository.findByPedidoFechaBetween(inicio, fin);
+    }
+
+    public List<Factura> reporteDiario() {
+        LocalDate hoy = LocalDate.now();
+        return buscarPorRango(hoy.atStartOfDay(), hoy.atTime(23, 59, 59));
+    }
+
+    public List<Factura> reporteSemanal() {
+        LocalDate hoy = LocalDate.now();
+        LocalDate inicioSemana = hoy.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        LocalDate finSemana = hoy.with(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY));
+
+        return buscarPorRango(inicioSemana.atStartOfDay(), finSemana.atTime(23, 59, 59));
+    }
+
+    public List<Factura> reporteMensual() {
+        LocalDate hoy = LocalDate.now();
+        LocalDate inicioMes = hoy.withDayOfMonth(1);
+        LocalDate finMes = hoy.withDayOfMonth(hoy.lengthOfMonth());
+
+        return buscarPorRango(inicioMes.atStartOfDay(), finMes.atTime(23, 59, 59));
+    }
+    public byte[] generarExcel(List<Factura> facturas) {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Reporte");
+
+            Row header = sheet.createRow(0);
+            String[] columnas = {
+                    "ID", "Numero", "Fecha Emision", "Cliente",
+                    "Documento", "Método Pago", "Subtotal",
+                    "Propina", "Impuestos", "Total", "Estado", "Pedido ID"
+            };
+
+            for (int i = 0; i < columnas.length; i++) {
+                header.createCell(i).setCellValue(columnas[i]);
+            }
+
+            int rowIdx = 1;
+            for (Factura f : facturas) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(f.getId());
+                row.createCell(1).setCellValue(f.getNumero());
+                row.createCell(2).setCellValue(f.getFechaEmision().toString());
+                row.createCell(3).setCellValue(f.getClienteNombre());
+                row.createCell(4).setCellValue(f.getClienteDocumento());
+                row.createCell(5).setCellValue(f.getMetodoPago());
+                row.createCell(6).setCellValue(f.getSubtotal());
+                row.createCell(7).setCellValue(f.getPropina());
+                row.createCell(8).setCellValue(f.getImpuestos());
+                row.createCell(9).setCellValue(f.getTotal());
+                row.createCell(10).setCellValue(f.getEstado());
+                row.createCell(11).setCellValue(f.getPedido().getId());
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error generando Excel: " + e.getMessage());
+        }
     }
 }
 
